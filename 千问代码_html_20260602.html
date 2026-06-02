@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>橙子 | Digital Strategist</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* --- 1. 核心变量与重置 --- */
+        :root {
+            --bg-color: #000000;
+            --text-main: #f5f5f7;
+            --text-muted: #86868b;
+            --accent: #ff9500;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(28, 28, 30, 0.5);
+            --ease-apple: cubic-bezier(0.22, 1, 0.36, 1);
+            --nav-height: 70px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden; /* 禁止body滚动，由JS控制翻页 */
+            height: 100vh;
+        }
+
+        /* --- 2. 动态背景系统 (全局固定) --- */
+        .ambient-light {
+            position: fixed; inset: 0; z-index: -2;
+            overflow: hidden; background: var(--bg-color);
+        }
+        .orb {
+            position: absolute; border-radius: 50%;
+            filter: blur(120px); opacity: 0.35;
+            animation: floatOrb 25s infinite ease-in-out alternate;
+        }
+        .orb-1 {
+            width: 50vw; height: 50vw;
+            background: radial-gradient(circle, #ff9500 0%, transparent 70%);
+            top: -15%; left: -5%; animation-duration: 28s;
+        }
+        .orb-2 {
+            width: 45vw; height: 45vw;
+            background: radial-gradient(circle, #0071e3 0%, transparent 70%);
+            bottom: -10%; right: -5%; animation-duration: 32s; animation-delay: -8s;
+        }
+        @keyframes floatOrb {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(40px, 60px) scale(1.08); }
+        }
+        .noise-overlay {
+            position: fixed; inset: 0; z-index: -1; opacity: 0.03; pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        /* --- 3. 顶部导航栏 --- */
+        header {
+            position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-height);
+            z-index: 1000;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 3rem;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border-bottom: 1px solid var(--glass-border);
+            transition: background 0.4s ease;
+        }
+        .logo { font-size: 1.4rem; font-weight: 700; color: #fff; text-decoration: none; letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 2.5rem; }
+        .nav-link {
+            color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500;
+            position: relative; padding: 0.3rem 0; transition: color 0.3s ease; cursor: pointer;
+        }
+        .nav-link::after {
+            content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 2px;
+            background: var(--accent); transition: width 0.3s var(--ease-apple);
+        }
+        .nav-link:hover, .nav-link.active { color: #fff; }
+        .nav-link.active::after { width: 100%; }
+
+        /* --- 4. 页面容器系统 --- */
+        .page-container {
+            position: fixed; inset: 0;
+            padding-top: var(--nav-height);
+        }
+
+        .page {
+            position: absolute; inset: 0;
+            top: var(--nav-height);
+            display: flex; align-items: center; justify-content: center;
+            padding: 2rem;
+            opacity: 0; visibility: hidden;
+            transform: translateY(30px);
+            transition: opacity 0.7s var(--ease-apple), transform 0.7s var(--ease-apple), visibility 0.7s;
+            overflow-y: auto; /* 允许单个页面内容过长时内部滚动 */
+        }
+
+        .page.active {
+            opacity: 1; visibility: visible; transform: translateY(0);
+            z-index: 10;
+        }
+
+        .page-inner {
+            max-width: 750px; width: 100%;
+            display: flex; flex-direction: column; align-items: center;
+            text-align: center; gap: 2.5rem;
+            padding: 2rem 0;
+        }
+
+        /* --- 5. 排版与组件 --- */
+        h1, h2, h3 { letter-spacing: -0.03em; font-weight: 600; }
+        .display-hero {
+            font-size: clamp(4rem, 12vw, 9rem); line-height: 0.9;
+            background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.5) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .section-title { font-size: clamp(2.5rem, 6vw, 4.5rem); opacity: 0.9; }
+        .subtitle { font-size: clamp(1.1rem, 2vw, 1.5rem); color: var(--text-muted); max-width: 550px; }
+
+        /* 玻璃卡片 */
+        .glass-card {
+            background: var(--glass-bg); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+            border: 1px solid var(--glass-border); border-radius: 28px;
+            padding: 3.5rem; width: 100%; max-width: 650px;
+            position: relative; overflow: hidden; transition: border-color 0.4s ease;
+        }
+        .glass-card::before {
+            content: ''; position: absolute; inset: 0; border-radius: 28px; padding: 1px;
+            background: radial-gradient(500px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.12), transparent 40%);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            pointer-events: none; opacity: 0; transition: opacity 0.5s ease;
+        }
+        .glass-card:hover::before { opacity: 1; }
+        .glass-card:hover { border-color: rgba(255,255,255,0.18); }
+
+        /* 技能标签 */
+        .skills-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.8rem; margin-top: 1rem; }
+        .skill-tag {
+            padding: 0.6rem 1.5rem; border: 1px solid var(--glass-border); border-radius: 100px;
+            font-size: 0.9rem; color: var(--text-muted); transition: all 0.3s ease;
+        }
+        .skill-tag:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* 项目列表 */
+        .project-stack { display: flex; flex-direction: column; gap: 1.5rem; width: 100%; max-width: 650px; }
+        .project-item {
+            background: var(--glass-bg); backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 2rem 2.5rem; text-align: left;
+            transition: all 0.4s var(--ease-apple); cursor: default;
+        }
+        .project-item:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-4px); }
+        .project-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); font-weight: 600; margin-bottom: 0.5rem; display: block; }
+        .project-item h3 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+        .project-item p { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* 联系信息 */
+        .contact-list { display: flex; flex-direction: column; gap: 1.2rem; width: 100%; max-width: 400px; }
+        .contact-row {
+            display: flex; align-items: center; gap: 1.2rem;
+            padding: 1.2rem 1.8rem; border: 1px solid var(--glass-border); border-radius: 16px;
+            transition: all 0.3s ease; text-decoration: none; color: var(--text-main);
+        }
+        .contact-row:hover { border-color: var(--accent); background: rgba(255, 149, 0, 0.05); }
+        .contact-row i { color: var(--text-muted); font-size: 1.2rem; width: 24px; text-align: center; }
+        .contact-row span { font-size: 1.05rem; }
+
+        /* 表单 */
+        .form-input {
+            width: 100%; background: transparent; border: none;
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.5rem 0; color: #fff; font-size: 1.1rem; outline: none;
+            transition: border-color 0.3s ease; font-family: inherit;
+        }
+        .form-input:focus { border-color: var(--accent); }
+        .form-input::placeholder { color: rgba(255,255,255,0.25); }
+        .submit-btn {
+            background: #fff; color: #000; border: none;
+            padding: 1rem 3rem; border-radius: 100px; font-size: 1rem; font-weight: 600;
+            cursor: pointer; transition: transform 0.3s var(--ease-apple), box-shadow 0.3s ease; margin-top: 1rem;
+        }
+        .submit-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(255,255,255,0.15); }
+
+        /* 向下探索提示 */
+        .scroll-hint {
+            color: var(--accent); text-decoration: none; font-size: 0.9rem; opacity: 0.7;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(8px)} }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            header { padding: 0 1.5rem; }
+            .nav-links { gap: 1.5rem; }
+            .nav-link { font-size: 0.8rem; }
+            .page { padding: 1.5rem; }
+            .glass-card { padding: 2.5rem 1.8rem; }
+            .project-item { padding: 1.5rem; }
+            .contact-row { padding: 1rem 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 动态环境光 -->
+    <div class="ambient-light"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+    <div class="noise-overlay"></div>
+
+    <!-- 顶部导航栏 -->
+    <header>
+        <a href="#" class="logo" onclick="navigateTo('hero'); return false;">橙子.</a>
+        <nav class="nav-links">
+            <span class="nav-link active" data-page="hero">首页</span>
+            <span class="nav-link" data-page="about">关于</span>
+            <span class="nav-link" data-page="work">项目</span>
+            <span class="nav-link" data-page="contact">联系</span>
+        </nav>
+    </header>
+
+    <!-- 页面容器 -->
+    <div class="page-container">
+
+        <!-- PAGE 1: 首屏 -->
+        <section id="hero" class="page active">
+            <div class="page-inner">
+                <h1 class="display-hero">橙子</h1>
+                <p class="subtitle">数字策略师 / 创意运营者<br>用数据驱动增长，以审美重塑体验</p>
+                <a href="#" class="scroll-hint" onclick="navigateTo('about'); return false;">↓ 向下探索</a>
+            </div>
+        </section>
+
+        <!-- PAGE 2: 关于 -->
+        <section id="about" class="page">
+            <div class="page-inner">
+                <h2 class="section-title">关于我</h2>
+                <div class="glass-card" onmousemove="handleCardHover(event, this)">
+                    <p style="font-size: 1.25rem; line-height: 2; color: rgba(255,255,255,0.85);">
+                        作为一名刚毕业的大学生，我在大学期间积累了丰富的实战运营经验。曾主导校园新媒体账号从 0 到 10 万粉丝的增长，策划并执行多场线上线下联动活动，参与率提升 300%。<br><br>
+                        我相信<span style="color: var(--accent);">好的运营是理性数据与感性审美的完美结合</span>。
+                    </p>
+                    <div class="skills-row">
+                        <span class="skill-tag">用户增长</span>
+                        <span class="skill-tag">内容营销</span>
+                        <span class="skill-tag">数据分析</span>
+                        <span class="skill-tag">活动策划</span>
+                        <span class="skill-tag">品牌策略</span>
+                        <span class="skill-tag">社交媒体</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE 3: 项目 -->
+        <section id="work" class="page">
+            <div class="page-inner">
+                <h2 class="section-title">精选项目</h2>
+                <div class="project-stack">
+                    <div class="project-item">
+                        <span class="project-tag">Growth</span>
+                        <h3>校园电商增长计划</h3>
+                        <p>通过精细化运营和裂变活动，3个月内实现用户增长 200%，GMV 提升 150%。</p>
+                    </div>
+                    <div class="project-item">
+                        <span class="project-tag">Content</span>
+                        <h3>校园 KOL 孵化矩阵</h3>
+                        <p>发掘并培养 10 位校园 KOL，建立内容矩阵，总曝光量达 500万+。</p>
+                    </div>
+                    <div class="project-item">
+                        <span class="project-tag">Product</span>
+                        <h3>APP 用户激活策略</h3>
+                        <p>设计并实施用户激活策略，使日活用户提升 80%，次月留存率提高 40%。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE 4: 联系 -->
+        <section id="contact" class="page">
+            <div class="page-inner">
+                <h2 class="section-title">联系我</h2>
+                <div class="contact-list">
+                    <a href="mailto:1042614514@qq.com" class="contact-row">
+                        <i class="fas fa-envelope"></i><span>1042614514@qq.com</span>
+                    </a>
+                    <a href="tel:19157701264" class="contact-row">
+                        <i class="fas fa-phone"></i><span>19157701264</span>
+                    </a>
+                    <div class="contact-row">
+                        <i class="fab fa-weixin"></i><span>WeChat Available</span>
+                    </div>
+                </div>
+                <div class="glass-card" style="margin-top: 1rem;" onmousemove="handleCardHover(event, this)">
+                    <form onsubmit="event.preventDefault(); alert('消息已发送！我会尽快回复您。');">
+                        <input type="text" class="form-input" placeholder="您的称呼" required>
+                        <textarea class="form-input" placeholder="想对我说的话..." required style="resize:none; height:100px;"></textarea>
+                        <button type="submit" class="submit-btn">发送消息</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // === 页面导航系统 ===
+        const pages = ['hero', 'about', 'work', 'contact'];
+        let currentPageIndex = 0;
+        let isTransitioning = false;
+
+        function navigateTo(pageId) {
+            const targetIndex = pages.indexOf(pageId);
+            if (targetIndex === -1 || targetIndex === currentPageIndex || isTransitioning) return;
+
+            isTransitioning = true;
+
+            // 移除当前页active
+            document.getElementById(pages[currentPageIndex]).classList.remove('active');
+            // 激活目标页
+            document.getElementById(pageId).classList.add('active');
+
+            // 更新导航高亮
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelector(`.nav-link[data-page="${pageId}"]`)?.classList.add('active');
+
+            currentPageIndex = targetIndex;
+
+            // 过渡锁，防止快速连点
+            setTimeout(() => { isTransitioning = false; }, 700);
+        }
+
+        // 导航栏点击
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => navigateTo(link.dataset.page));
+        });
+
+        // 鼠标滚轮翻页
+        window.addEventListener('wheel', (e) => {
+            if (isTransitioning) return;
+            if (e.deltaY > 0 && currentPageIndex < pages.length - 1) {
+                navigateTo(pages[currentPageIndex + 1]);
+            } else if (e.deltaY < 0 && currentPageIndex > 0) {
+                navigateTo(pages[currentPageIndex - 1]);
+            }
+        }, { passive: true });
+
+        // 触摸滑动翻页
+        let touchStartY = 0;
+        window.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
+        window.addEventListener('touchend', (e) => {
+            if (isTransitioning) return;
+            const diff = touchStartY - e.changedTouches[0].clientY;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0 && currentPageIndex < pages.length - 1) navigateTo(pages[currentPageIndex + 1]);
+                else if (diff < 0 && currentPageIndex > 0) navigateTo(pages[currentPageIndex - 1]);
+            }
+        }, { passive: true });
+
+        // 键盘翻页
+        window.addEventListener('keydown', (e) => {
+            if (isTransitioning) return;
+            if ((e.key === 'ArrowDown' || e.key === ' ') && currentPageIndex < pages.length - 1) {
+                e.preventDefault(); navigateTo(pages[currentPageIndex + 1]);
+            } else if (e.key === 'ArrowUp' && currentPageIndex > 0) {
+                e.preventDefault(); navigateTo(pages[currentPageIndex - 1]);
+            }
+        });
+
+        // 卡片光标追踪聚光灯
+        function handleCardHover(e, card) {
+            const rect = card.getBoundingClientRect();
+            card.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+            card.style.setProperty('--my', `${e.clientY - rect.top}px`);
+        }
+    </script>
+</body>
+</html>
